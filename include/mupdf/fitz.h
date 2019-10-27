@@ -28,6 +28,7 @@ extern "C" {
 #include "mupdf/fitz/filter.h"
 #include "mupdf/fitz/output.h"
 #include "mupdf/fitz/archive.h"
+#include "mupdf/fitz/log.h"
 
 /* Resources */
 #include "mupdf/fitz/store.h"

@@ -5,6 +5,8 @@
 
 #include <zlib.h>
 
+#include <inttypes.h>
+
 #if !defined (INT32_MAX)
 #define INT32_MAX 2147483647L
 #endif
@@ -50,22 +52,35 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 {
 	fz_stream *file = zip->super.file;
 	uint32_t sig;
-	int i;
+	int i, retryct;
 	int namesize, metasize, commentsize;
-	uint64_t count, offset;
+	uint64_t count, offset, readpos;
 	uint64_t csize, usize;
 	char *name = NULL;
 	size_t n;
+	FILE *logfile;
+
+	logfile = fopen("/switch/eBookReader/log.txt","w");
+
+	log_set_fp(logfile);
+
+	log_debug("Start of mupdf log");
 
 	fz_var(name);
 
+	//fz_throw(ctx, FZ_ERROR_GENERIC, "zip file offset (0x%x)", start_offset);
+
 	zip->count = 0;
+
+	log_debug("Start offset is 0x%x", start_offset);
 
 	fz_seek(ctx, file, start_offset, 0);
 
 	sig = fz_read_uint32_le(ctx, file);
 	if (sig != ZIP_END_OF_CENTRAL_DIRECTORY_SIG)
-		fz_throw(ctx, FZ_ERROR_GENERIC, "wrong zip end of central directory signature (0x%x)", sig);
+		fz_throw(ctx, FZ_ERROR_GENERIC, "wrong zip end of central directory signature (0x%x), start_offset (0x%x)", sig, start_offset);
+
+	log_debug("zip end of central directory found");
 
 	(void) fz_read_uint16_le(ctx, file); /* this disk */
 	(void) fz_read_uint16_le(ctx, file); /* start disk */
@@ -73,6 +88,12 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 	count = fz_read_uint16_le(ctx, file); /* entries in central directory disk */
 	(void) fz_read_uint32_le(ctx, file); /* size of central directory */
 	offset = fz_read_uint32_le(ctx, file); /* offset to central directory */
+
+	log_debug("Entries in disk: %d", count);
+
+	log_debug("Offset to central directory: 0x%x", offset);
+
+	
 
 	/* ZIP64 */
 	if (count == 0xFFFF || offset == 0xFFFFFFFF)
@@ -120,7 +141,24 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 	{
 		for (i = 0; i < count; i++)
 		{
-			sig = fz_read_uint32_le(ctx, file);
+			log_debug("========== BEGIN ENTRY %d =============", zip->count);
+	
+			for(retryct = 0; retryct < 5; retryct++){
+				readpos = fz_tell(ctx, file);
+				log_debug("Will read 4 bytes @ 0x%x. wp = 0x%x, rp = 0x%x, pos = 0x%x", readpos, file->wp, file->rp, file->pos);
+				sig = fz_read_uint32_le(ctx, file);
+
+				log_debug("sig 0x%x, file header position 0x%x", sig, readpos + 4);
+
+				if (sig != ZIP_CENTRAL_DIRECTORY_SIG){
+					fz_seek(ctx, file, readpos -1 , 0);
+					log_debug("Wrong sig, resetting readpos to 0x%x", readpos -1);
+				}
+				else{
+					break;
+				}
+			}
+
 			if (sig != ZIP_CENTRAL_DIRECTORY_SIG)
 				fz_throw(ctx, FZ_ERROR_GENERIC, "wrong zip central directory signature (0x%x)", sig);
 
@@ -136,10 +174,14 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 			namesize = fz_read_uint16_le(ctx, file);
 			metasize = fz_read_uint16_le(ctx, file);
 			commentsize = fz_read_uint16_le(ctx, file);
+
 			(void) fz_read_uint16_le(ctx, file); /* disk number start */
 			(void) fz_read_uint16_le(ctx, file); /* int file atts */
 			(void) fz_read_uint32_le(ctx, file); /* ext file atts */
 			offset = fz_read_uint32_le(ctx, file);
+
+			int extraLength = namesize + metasize + commentsize;
+			log_debug("Read 46 bytes, will read %d bytes more. Next file header should be: 0x%x", extraLength, readpos + 46 + extraLength);
 
 			if (namesize < 0 || metasize < 0 || commentsize < 0)
 				fz_throw(ctx, FZ_ERROR_GENERIC, "invalid size in zip entry");
@@ -151,40 +193,51 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 				fz_throw(ctx, FZ_ERROR_GENERIC, "premature end of data in zip entry name");
 			name[namesize] = '\0';
 
+			log_debug("Entry name: %s. namesize = %d", name, namesize);
+
 			while (metasize > 0)
 			{
 				int type = fz_read_uint16_le(ctx, file);
 				int size = fz_read_uint16_le(ctx, file);
 
+				log_debug("Read 4 bytes in metasize. type=%d, size = %d", size, type);
+
 				if (type == ZIP64_EXTRA_FIELD_SIG)
 				{
+					log_debug("Type is ZIP64_EXTRA_FIELD_SIG");
 					int sizeleft = size;
 					if (usize == 0xFFFFFFFF && sizeleft >= 8)
 					{
 						usize = fz_read_uint64_le(ctx, file);
 						sizeleft -= 8;
+						log_debug("Read 8 bytes (usize)");
 					}
 					if (csize == 0xFFFFFFFF && sizeleft >= 8)
 					{
 						csize = fz_read_uint64_le(ctx, file);
 						sizeleft -= 8;
+						log_debug("Read 8 bytes (csize)");
 					}
 					if (offset == 0xFFFFFFFF && sizeleft >= 8)
 					{
 						offset = fz_read_uint64_le(ctx, file);
 						sizeleft -= 8;
+						log_debug("Read 8 bytes (offset)");
 					}
 					fz_seek(ctx, file, sizeleft - size, 1);
+					log_debug("fz_seek: skip %d bytes", (sizeleft - size));
 				}
 				fz_seek(ctx, file, size, 1);
+				log_debug("fz_seek: skip %d bytes (size)", size);
 				metasize -= 4 + size;
 			}
 
 			if (usize > INT32_MAX || csize > INT32_MAX)
 				fz_throw(ctx, FZ_ERROR_GENERIC, "zip archive entry larger than 2 GB");
 
-			fz_seek(ctx, file, commentsize, 1);
-
+			if(commentsize > 0)
+				fz_seek(ctx, file, commentsize, 1);
+			
 			zip->entries = fz_realloc_array(ctx, zip->entries, zip->count + 1, zip_entry);
 
 			zip->entries[zip->count].offset = offset;
@@ -196,8 +249,10 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 			zip->count++;
 		}
 	}
-	fz_always(ctx)
+	fz_always(ctx){
+		fclose(logfile);
 		fz_free(ctx, name);
+	}		
 	fz_catch(ctx)
 		fz_rethrow(ctx);
 }
