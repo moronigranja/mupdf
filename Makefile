@@ -176,7 +176,7 @@ CMAP_GEN := $(notdir $(sort $(wildcard resources/cmaps/*)))
 CMAP_GEN := $(CMAP_GEN:%=source/pdf/cmaps/%.h)
 
 source/pdf/cmaps/%.h: resources/cmaps/% scripts/cmapdump.py
-	$(QUIET_GEN) python scripts/cmapdump.py > $@ $<
+	$(QUIET_GEN) python2 scripts/cmapdump.py > $@ $<
 
 generate: $(CMAP_GEN)
 

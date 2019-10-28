@@ -26,7 +26,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "mupdf/fitz/log.h"
+#include "log.h"
 
 static struct {
   void *udata;
