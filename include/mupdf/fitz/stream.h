@@ -4,7 +4,6 @@
 #include "mupdf/fitz/system.h"
 #include "mupdf/fitz/context.h"
 #include "mupdf/fitz/buffer.h"
-#include "mupdf/fitz/log.h"
 
 int fz_file_exists(fz_context *ctx, const char *path);
 
@@ -182,13 +181,13 @@ static inline int fz_read_byte(fz_context *ctx, fz_stream *stm)
 	int c = EOF;
 
 	if (stm->rp != stm->wp){
-		log_debug("fz_read_byte in buffer");
+		//log_debug("fz_read_byte in buffer");
 		return *stm->rp++;
 	}
 	if (stm->eof)
 		return EOF;
 	fz_try(ctx){
-		log_debug("fz_read_byte using next_file");
+		//log_debug("fz_read_byte using next_file");
 		c = stm->next(ctx, stm, 1);
 	}
 	fz_catch(ctx)

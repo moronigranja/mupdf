@@ -1,11 +1,10 @@
 #include "mupdf/fitz.h"
 #include "fitz-imp.h"
+#include "log.h"
 
 #include <string.h>
 
 #include <zlib.h>
-
-#include <inttypes.h>
 
 #if !defined (INT32_MAX)
 #define INT32_MAX 2147483647L
