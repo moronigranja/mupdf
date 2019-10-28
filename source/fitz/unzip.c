@@ -247,6 +247,7 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 
 			zip->count++;
 		}
+		log_debug("========== FINISHED READING %d ENTRIES =============", zip->count);
 	}
 	fz_always(ctx){
 		fclose(logfile);
@@ -316,6 +317,7 @@ static void ensure_zip_entries(fz_context *ctx, fz_zip_archive *zip)
 	}
 
 	fz_throw(ctx, FZ_ERROR_GENERIC, "cannot find end of central directory");
+	log_debug("exiting ensure_zip_entries");
 }
 
 static zip_entry *lookup_zip_entry(fz_context *ctx, fz_zip_archive *zip, const char *name)
@@ -518,6 +520,7 @@ fz_open_zip_archive_with_stream(fz_context *ctx, fz_stream *file)
 		fz_rethrow(ctx);
 	}
 
+	log_debug("exiting fz_open_zip_archive_with_stream");
 	return &zip->super;
 }
 

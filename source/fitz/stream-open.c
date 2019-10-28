@@ -5,6 +5,7 @@
 
 #include "mupdf/fitz.h"
 #include "fitz-imp.h"
+#include "log.h"
 
 #include <string.h>
 #include <errno.h>
@@ -112,7 +113,7 @@ static int next_file(fz_context *ctx, fz_stream *stm, size_t n)
 	if (n < sizeof(state->buffer) && ferror(state->file))
 		fz_throw(ctx, FZ_ERROR_GENERIC, "read error: %s", strerror(errno));
 
-	log_debug("next_file old pos=0x%x, n=0x%x", stm->pos, n);
+	//log_debug("next_file old pos=0x%x, n=0x%x", stm->pos, n);
 
 	stm->rp = state->buffer;
 	stm->wp = state->buffer + n;
@@ -125,7 +126,8 @@ static int next_file(fz_context *ctx, fz_stream *stm, size_t n)
 
 static void seek_file(fz_context *ctx, fz_stream *stm, int64_t offset, int whence)
 {
-	log_debug("seek_file to pos=0x%x", offset);
+	//log_debug("seek_file to pos=0x%x", offset);
+	
 	fz_file_stream *state = stm->state;
 #ifdef _WIN32
 	int64_t n = _fseeki64(state->file, offset, whence);
