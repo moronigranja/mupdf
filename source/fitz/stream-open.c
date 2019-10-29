@@ -100,14 +100,14 @@ fz_drop_stream(fz_context *ctx, fz_stream *stm)
 typedef struct fz_file_stream_s
 {
 	FILE *file;
-	unsigned char buffer[4096];
+	unsigned char buffer[1048576];
 } fz_file_stream;
 
 static int next_file(fz_context *ctx, fz_stream *stm, size_t n)
 {
 	fz_file_stream *state = stm->state;
 
-	/* n is only a hint, that we can safely ignore */
+	/* n is only a hint, that we can safely ignore */	
 	n = fread(state->buffer, 1, sizeof(state->buffer), state->file);
 	if (n < sizeof(state->buffer) && ferror(state->file))
 		fz_throw(ctx, FZ_ERROR_GENERIC, "read error: %s", strerror(errno));
@@ -123,6 +123,9 @@ static int next_file(fz_context *ctx, fz_stream *stm, size_t n)
 static void seek_file(fz_context *ctx, fz_stream *stm, int64_t offset, int whence)
 {
 	fz_file_stream *state = stm->state;
+		/* Purges the file to see if we can get rid of inconsistencies */
+	fpurge(state->file);
+
 #ifdef _WIN32
 	int64_t n = _fseeki64(state->file, offset, whence);
 #else

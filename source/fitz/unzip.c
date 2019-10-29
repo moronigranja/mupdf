@@ -186,7 +186,8 @@ static void read_zip_dir_imp(fz_context *ctx, fz_zip_archive *zip, int64_t start
 			if (usize > INT32_MAX || csize > INT32_MAX)
 				fz_throw(ctx, FZ_ERROR_GENERIC, "zip archive entry larger than 2 GB");
 
-			fz_seek(ctx, file, commentsize, 1);
+			if(commentsize > 0)
+				fz_seek(ctx, file, commentsize, 1);
 
 			zip->entries = Memento_label(fz_realloc_array(ctx, zip->entries, zip->count + 1, zip_entry), "zip_entries");
 
